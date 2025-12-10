@@ -1,0 +1,58 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.ipynb_checkpoints/
+
+# Virtual Environment
+.env
+venv/
+env/
+myenv/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data & Model files (JANGAN upload ke GitHub)
+data/
+*.csv
+*.xlsx
+*.xls
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# File besar spesifik project Anda
+best_model_*
+test_model_*
+example_*
+beta_churn_vn*
+model_comp*
+preprocessor*
+feature_names*
