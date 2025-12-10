@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
@@ -32,7 +32,6 @@ data/
 *.csv
 *.xlsx
 *.xls
-*.pkl
 *.pickle
 *.joblib
 *.h5
@@ -41,7 +40,6 @@ data/
 *.sqlite
 
 # Notebook files (jangan upload .ipynb jika tidak perlu)
-*.ipynb
 
 # Logs
 *.log
@@ -52,10 +50,4 @@ Thumbs.db
 Desktop.ini
 
 # File besar spesifik project Anda
-best_model_*
-test_model_*
-example_*
-beta_churn_vn*
-model_comp*
-preprocessor*
-feature_names*
+
