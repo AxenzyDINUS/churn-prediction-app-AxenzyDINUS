@@ -110,6 +110,12 @@ model, preprocessor, model_loc, preproc_loc = load_model_and_preprocessor()
 
 if model:
     st.sidebar.success(f"✅ Model siap digunakan ({model_loc})")
+    # Tampilkan info model
+    if hasattr(model, 'named_steps'):
+        st.sidebar.info(f"Model type: Pipeline ({len(model.named_steps)} steps)")
+    else:
+        st.sidebar.info(f"Model type: {type(model).__name__}")
+
 if preprocessor:
     st.sidebar.success(f"✅ Preprocessor siap ({preproc_loc})")
 
@@ -133,13 +139,13 @@ monthly_charges = st.sidebar.slider("Monthly Charges ($)", 18.0, 120.0, 70.0)
 total_charges = st.sidebar.slider("Total Charges ($)", 0.0, 9000.0, tenure * monthly_charges)
 
 # Default values for other features
-multiple_lines = "No"
-online_security = "No"
-online_backup = "No"
-device_protection = "No"
-tech_support = "No"
-streaming_tv = "No"
-streaming_movies = "No"
+multiple_lines = "No phone service" if phone_service == "No" else "No"
+online_security = "No internet service" if internet_service == "No" else "No"
+online_backup = "No internet service" if internet_service == "No" else "No"
+device_protection = "No internet service" if internet_service == "No" else "No"
+tech_support = "No internet service" if internet_service == "No" else "No"
+streaming_tv = "No internet service" if internet_service == "No" else "No"
+streaming_movies = "No internet service" if internet_service == "No" else "No"
 
 # Create input dataframe
 input_data = {
@@ -174,24 +180,45 @@ st.write(input_df)
 if st.button("Prediksi Churn"):
     if model:
         try:
-            # Transform input jika ada preprocessor
-            if preprocessor:
-                try:
-                    # Coba transform dengan preprocessor
-                    if hasattr(preprocessor, 'transform'):
-                        input_transformed = preprocessor.transform(input_df)
-                    elif isinstance(preprocessor, list) or isinstance(preprocessor, dict):
-                        # Jika preprocessor adalah feature names
-                        st.info("Menggunakan feature names untuk validasi")
-                except Exception as e:
-                    st.warning(f"Transformasi data gagal: {e}. Menggunakan data asli.")
-                    input_transformed = input_df
-            else:
-                input_transformed = input_df
+            # ===== PERUBAHAN UTAMA DI SINI =====
+            # Jika model adalah Pipeline, JANGAN transform data manual
+            # Pipeline akan handle preprocessing otomatis
             
-            # Predict
-            prediction = model.predict(input_transformed)[0]
-            probabilities = model.predict_proba(input_transformed)[0]
+            # Cek jika model adalah Pipeline
+            is_pipeline = hasattr(model, 'named_steps')
+            
+            if is_pipeline:
+                st.info("🔧 Model adalah Pipeline - preprocessing dilakukan otomatis")
+                
+                # Pastikan semua kolom yang dibutuhkan ada
+                if hasattr(model, 'feature_names_in_'):
+                    required_cols = list(model.feature_names_in_)
+                    missing_cols = [col for col in required_cols if col not in input_df.columns]
+                    
+                    if missing_cols:
+                        st.warning(f"Kolom yang hilang: {missing_cols[:5]}")
+                        # Tambahkan kolom yang hilang dengan nilai default
+                        for col in missing_cols:
+                            input_df[col] = 0 if 'charge' in col.lower() or 'tenure' in col.lower() else 'Unknown'
+                
+                # Predict langsung dengan raw data
+                prediction = model.predict(input_df)[0]
+                probabilities = model.predict_proba(input_df)[0]
+                
+            else:
+                # Model bukan Pipeline, coba pakai preprocessor jika ada
+                if preprocessor and hasattr(preprocessor, 'transform'):
+                    try:
+                        input_transformed = preprocessor.transform(input_df)
+                    except Exception as e:
+                        st.warning(f"Transformasi gagal: {e}. Menggunakan data asli.")
+                        input_transformed = input_df
+                else:
+                    input_transformed = input_df
+                
+                prediction = model.predict(input_transformed)[0]
+                probabilities = model.predict_proba(input_transformed)[0]
+            # ===== END PERUBAHAN =====
             
             # Display results
             st.subheader("Hasil Prediksi")
@@ -239,11 +266,70 @@ if st.button("Prediksi Churn"):
                 
         except Exception as e:
             st.error(f"Error saat prediksi: {str(e)}")
-            with st.expander("Detail Error"):
-                st.write("Input data:", input_df)
-                st.write("Model type:", type(model))
-                if hasattr(model, 'feature_names_in_'):
-                    st.write("Model features:", model.feature_names_in_)
+            with st.expander("🔍 Detail Error dan Troubleshooting"):
+                st.write("**Input data columns:**", list(input_df.columns))
+                st.write("**Input data dtypes:**", input_df.dtypes.to_dict())
+                st.write("**Model type:**", type(model))
+                
+                # Debug Pipeline
+                if hasattr(model, 'named_steps'):
+                    st.write("**Pipeline steps:**")
+                    for name, step in model.named_steps.items():
+                        st.write(f"- {name}: {type(step).__name__}")
+                
+                # Coba prediksi dengan sample data
+                st.write("**Test dengan sample data:**")
+                try:
+                    # Sample data sesuai dataset asli
+                    sample_data = pd.DataFrame({
+                        'gender': ['Female'],
+                        'SeniorCitizen': [0],
+                        'Partner': ['Yes'],
+                        'Dependents': ['No'],
+                        'tenure': [12],
+                        'PhoneService': ['Yes'],
+                        'MultipleLines': ['No'],
+                        'InternetService': ['DSL'],
+                        'OnlineSecurity': ['No'],
+                        'OnlineBackup': ['No'],
+                        'DeviceProtection': ['No'],
+                        'TechSupport': ['No'],
+                        'StreamingTV': ['No'],
+                        'StreamingMovies': ['No'],
+                        'Contract': ['Month-to-month'],
+                        'PaperlessBilling': ['Yes'],
+                        'PaymentMethod': ['Electronic check'],
+                        'MonthlyCharges': [70.0],
+                        'TotalCharges': [840.0]
+                    })
+                    
+                    sample_pred = model.predict(sample_data)
+                    sample_proba = model.predict_proba(sample_data)
+                    st.success(f"✅ Sample test berhasil! Prediction: {sample_pred[0]}, Probability: {sample_proba[0][1]:.2%}")
+                    
+                    # Bandingkan kolom
+                    st.write("**Perbandingan kolom:**")
+                    if hasattr(model, 'feature_names_in_'):
+                        model_cols = list(model.feature_names_in_)
+                        input_cols = list(input_df.columns)
+                        st.write(f"Model cols: {len(model_cols)} | Input cols: {len(input_cols)}")
+                        
+                        missing_in_input = [col for col in model_cols if col not in input_cols]
+                        extra_in_input = [col for col in input_cols if col not in model_cols]
+                        
+                        if missing_in_input:
+                            st.write(f"Kolom hilang di input: {missing_in_input[:10]}")
+                        if extra_in_input:
+                            st.write(f"Kolom ekstra di input: {extra_in_input[:10]}")
+                            
+                except Exception as e2:
+                    st.error(f"Sample test gagal: {str(e2)}")
+                    
+                # Saran perbaikan
+                st.write("**Saran perbaikan:**")
+                st.write("1. Pastikan semua feature ada (19 features)")
+                st.write("2. Gunakan nilai kategori yang valid (lihat dataset asli)")
+                st.write("3. Cek apakah model membutuhkan feature engineering")
     else:
         st.error("Model belum dimuat. Pastikan file model ada.")
 
@@ -252,6 +338,14 @@ with st.sidebar.expander("🔧 Debug & Info"):
     st.write("**Model Location:**", model_loc if model_loc else "Not found")
     st.write("**Preprocessor Location:**", preproc_loc if preproc_loc else "Not found")
     st.write("**Current Directory:**", os.getcwd())
+    
+    if model:
+        st.write("**Model Info:**")
+        st.write(f"- Type: {type(model).__name__}")
+        if hasattr(model, 'named_steps'):
+            st.write(f"- Steps: {list(model.named_steps.keys())}")
+        if hasattr(model, 'feature_names_in_'):
+            st.write(f"- Features expected: {len(model.feature_names_in_)}")
     
     if st.button("Check Files"):
         st.write("**Files in current dir:**")
