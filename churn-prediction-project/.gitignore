@@ -40,6 +40,9 @@ data/
 *.db
 *.sqlite
 
+# Notebook files (jangan upload .ipynb jika tidak perlu)
+*.ipynb
+
 # Logs
 *.log
 logs/
